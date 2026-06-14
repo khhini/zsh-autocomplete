@@ -1,6 +1,6 @@
 # Autocomplete for Zsh
 This plugin for Zsh adds real-time type-ahead autocompletion to your command line, similar to what
-you find desktop apps. While you type on the command line, available completions are listed
+you find in desktop apps. While you type on the command line, available completions are listed
 automatically; no need to press any keyboard shortcuts. Press <kbd>Tab</kbd> to insert the top
 completion or <kbd>↓</kbd> to select a different one.
 
@@ -29,7 +29,10 @@ First, install Autocomplete itself. Here are some way to do so:
     manager. As of this writing, this package is available through Homebrew, Nix, `pacman`, Plumage,
     and (as `app-shells/zsh-autocomplete`) Portage.
   * To always use the latest commit on the `main` branch, do one of the following:
-    * Use `pacman` to install `zsh-autocomplete-git`.
+    * Install the AUR package [zsh-autocomplete-git](https://aur.archlinux.org/packages/zsh-autocomplete-git)<sup>AUR</sup> from the Arch User Repository (for example, using [yay](https://github.com/Jguer/yay), an AUR helper):
+      ```sh
+       yay -S zsh-autocomplete-git
+      ```
     * Use a Zsh plugin manager to install `marlonrichert/zsh-autocomplete`. (If you don't have a
       plugin manager yet, I recommend using [Znap](https://github.com/marlonrichert/zsh-snap).)
     * Clone the repo directly:
@@ -75,8 +78,8 @@ Otherwise, simply use your package manager or plugin manager's update mechanisms
 | `main` | `emacs` | `vicmd` | On the command line | In the menus
 | ---: | ---: | ---: | :--- | :---
 | <kbd>Enter</kbd><br><kbd>Return</kbd> | | | | Exit menu text search or exit  menu
-| <kbd>Tab</kbd> | | | Insert first listed menu item | Exit menu text search or exit menu
-| <kbd>Shift</kbd><kbd>Tab</kbd> | | | Insert substring occurring in all listed completions | Exit menu text search or exit menu
+| <kbd>Tab</kbd> | | | Insert first listed menu item | Next completion
+| <kbd>Shift</kbd><kbd>Tab</kbd> | | | Expand the current word | Previous completion
 | <kbd>↓</kbd> | <kbd>Ctrl</kbd><kbd>N</kbd> | <kbd>J</kbd> | Cursor down or enter completion menu | Change selection
 | <kbd>↑</kbd> | <kbd>Ctrl</kbd><kbd>P</kbd> | <kbd>K</kbd> | Cursor up or enter [history menu](#history-menu) | Change selection
 | <kbd>Alt</kbd><kbd>↓</kbd> | <kbd>Alt</kbd><kbd>N</kbd> | <kbd>Ctrl</kbd><kbd>N</kbd> | Enter completion menu | Next section
@@ -157,12 +160,33 @@ This makes <kbd>Enter</kbd> always submit the command line, even when you are in
 bindkey -M menuselect '^M' .accept-line
 ```
 
-#### Restore Zsh-default functionality
-Autocomplete overrides the behavior of some of Zsh's built-in keyboard widgets. To use the original
-widget instead, prefix it with a `.`:
+#### Restore Zsh-default history shortcuts
+This restores the default Zsh keybindings for history control:
 ```sh
-bindkey '^R' .history-incremental-search-backward
-bindkey '^S' .history-incremental-search-forward
+bindkey -M emacs \
+    "^[p"   .history-search-backward \
+    "^[n"   .history-search-forward \
+    "^P"    .up-line-or-history \
+    "^[OA"  .up-line-or-history \
+    "^[[A"  .up-line-or-history \
+    "^N"    .down-line-or-history \
+    "^[OB"  .down-line-or-history \
+    "^[[B"  .down-line-or-history \
+    "^R"    .history-incremental-search-backward \
+    "^S"    .history-incremental-search-forward \
+    #
+bindkey -a \
+    "^P"    .up-history \
+    "^N"    .down-history \
+    "k"     .up-line-or-history \
+    "^[OA"  .up-line-or-history \
+    "^[[A"  .up-line-or-history \
+    "j"     .down-line-or-history \
+    "^[OB"  .down-line-or-history \
+    "^[[B"  .down-line-or-history \
+    "/"     .vi-history-search-backward \
+    "?"     .vi-history-search-forward \
+    #
 ```
 
 ### Pass arguments to `compinit`
@@ -194,6 +218,24 @@ zstyle ':completion:*:*' matcher-list 'm:{[:lower:]-}={[:upper:]_}' '+r:|[.]=**'
 Note, though, that this will also slightly change what completions are listed initially. This is a
 limitation of the underlying implementation in Zsh.
 
+### Customize common substring message
+You can customize the way the common substring is presented. The following sets the presentation to
+the default:
+```zsh
+builtin zstyle ':autocomplete:*:unambiguous' format \
+    $'%{\e[0;2m%}%Bcommon substring:%b %0F%11K%d%f%k'
+```
+`%d` will be replaced with the common substring. Additionally, the following [Zsh prompt escape
+sequences](https://zsh.sourceforge.io/Doc/Release/Prompt-Expansion.html#Visual-effects) are
+supported for adding visual effects:
+* `%B`: bold
+* `%F`: foreground color
+* `%K`: background color
+* `%S`: `terminfo` "standout"
+* `%U`: underline
+* `%{...%}`: arbitrary [ANSI escape
+   sequence](https://en.wikipedia.org/wiki/ANSI_escape_code#Select_Graphic_Rendition_parameters)
+
 ### Make <kbd>Enter</kbd> submit the command line straight from the menu
 By default, pressing <kbd>Enter</kbd> in the menu search exits the search and
 pressing it otherwise in the menu exits the menu.  If you instead want to make
@@ -213,16 +255,18 @@ Modifying this list will change when a space is inserted.  If you change the
 list to `'*'`, a space is always inserted.  If you put no elements in the list,
 then a space is never inserted.
 
-### Start each command line in history search mode
-This will make Autocomplete behave as if you pressed <kbd>Ctrl</kbd><kbd>R</kbd> at the start of each new command line:
+### Don't add a semicolon after history completions
+By default, Autocomplete adds a semicolon to each history line to allow adding another line with
+<kbd>Ctrl</kbd><kbd>Space</kbd>. You can deactivate this feature as follows:
 ```zsh
-zstyle ':autocomplete:*' default-context history-incremental-search-backward
+zstyle ':autocomplete:*' add-semicolon no
 ```
 
-### Wait for a minimum amount of input
-To suppress autocompletion until a minimum number of characters have been typed:
+### Start each command line in history search mode
+This will make Autocomplete behave as if you pressed <kbd>Ctrl</kbd><kbd>R</kbd> at the start of
+each new command line:
 ```zsh
-zstyle ':autocomplete:*' min-input 3
+zstyle ':autocomplete:*' default-context history-incremental-search-backward
 ```
 
 ### Wait with autocompletion until typing stops for a certain amount of seconds
@@ -232,8 +276,23 @@ change this as follows:
 zstyle ':autocomplete:*' delay 0.1  # seconds (float)
 ```
 
+### Wait longer before timing out autocompletion
+Slow autocompletion can make the command line hang. Therefore, by default, Autocomplete waits at
+most 1 second for completion to finish. You can change this value as follows:
+```zsh
+zstyle ':autocomplete:*' timeout 2.0  # seconds (float)
+```
+Note, though, that increasing this value can make your command line feel less responsive.
+
+### Wait for a minimum amount of input
+To suppress autocompletion until a minimum number of characters have been typed:
+```zsh
+zstyle ':autocomplete:*' min-input 3
+```
+
 ### Don't show completions if the current word matches a pattern
-For example, this will stop completions from showing whenever the current word consists of two or more dots:
+For example, this will stop completions from showing whenever the current word consists of two or
+more dots:
 ```zsh
 zstyle ':autocomplete:*' ignored-input '..##'
 ```
@@ -265,38 +324,41 @@ generates more lines than fit on screen, you can simply use <kbd>PgUp</kbd> and 
 scroll through the excess lines. (Note: On some terminals, you have to additionally hold
 <kbd>Shift</kbd> or, otherwise, it will scroll the terminal buffer instead.)
 
-### Use a custom backend for recent directories
-Autocomplete comes with its own backend for keeping track of and listing recent directories (which
-uses part of
-[`cdr`](https://zsh.sourceforge.io/Doc/Release/User-Contributions.html#Recent-Directories) under the
-hood). However, you can override this and supply Autocomplete with recent directories from any
-source that you like. To do so, define a function like this:
+### Use a custom backend for recent directories/files
+Autocomplete by default uses [`cdr`](
+https://zsh.sourceforge.io/Doc/Release/User-Contributions.html#Recent-Directories)
+to keeping track of and list recent directories (but not files). Override the following two
+functions to supply Autocomplete with recent directories/files from any source that you like:
 
-```sh
-+autocomplete:recent-directories() {
-  <code>
-  typeset -ga reply=( <any number of absolute paths> )
+```zsh
+# This function should populate an array $reply with a list of absolute paths. Path completions are
+# listed in the same order as in this array.
+chpwd_recent_filehandler() {
+  reply=( '/first/recent/dir' '/recent/file' '/second/recent/dir' )
 }
+
+# Called whenever you change dirs, to give you a chance to write the new dir to file.
+# NOTE: If you override the function above, then you are *required* to override this one, too. Can
+# be left empty, though.
+chpwd_recent_dirs() {}
 ```
 
-#### Add a backend for recent files
-Out of the box, Autocomplete doesn't track or offer recent files. However, it will do so if you add
-a backend for it:
-
-```sh
-+autocomplete:recent-files() {
-  <code>
-  typeset -ga reply=( <any number of absolute paths> )
-}
+### Auto-include recent directories
+Instead of having to press a keyboard shortcut, you can automatically include recent directories
+whenever directories are listed:
+```zsh
+# Show recent dirs unless the current word is empty or equal to an existing directory.
+zstyle -e ':completion:*:directories' fake '
+    [[ -z $PREFIX$SUFFIX || -d $PREFIX$SUFFIX ]] ||
+        +autocomplete:recent-directories
+'
+zstyle ':completion:*:directories' sort no
 ```
+
 
 ## Troubleshooting
 Try the steps in the
 [bug report template](.github/ISSUE_TEMPLATE/bug-report.md).
 
-## Author
-© 2020-2023 [Marlon Richert](https://github.com/marlonrichert)
-
-## License
-This project is licensed under the MIT License.  See the [LICENSE](LICENSE) file
-for details.
+## Author & License
+See the [LICENSE](LICENSE) file for details.

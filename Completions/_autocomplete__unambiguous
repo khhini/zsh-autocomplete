@@ -12,8 +12,8 @@
     return 1
 
 # Doesn't make sense to show.
-(( compstate[nmatches] < 2 )) &&
-    return 1
+[[ compstate[nmatches] -lt 2 || $_completer == expand ]] &&
+  return 1
 
 # Nothing to insert.
 [[ -z $compstate[unambiguous] ]] &&
@@ -31,8 +31,13 @@ _tags ||
 _requested $tag ||
     return
 
-typeset -g _autocomplete__unambiguous="$compstate[unambiguous]"
+# Retrieve highlight value.
+local format
+zstyle -s ":completion:${curcontext}:unambiguous" format format ||
+    format=$'%{\e[0;2m%}%Bcommon substring:%b %0F%11K%d%f%k'
 
-builtin compadd -J "$tag" -x $'%{\e[0;2m%}%Bcommon substring:%b %F{0}%K{11}'"$compstate[unambiguous]%f%k"
+zformat -F format "$format" "d:$compstate[unambiguous]"
+
+builtin compadd -J "$tag" -x "$format"
 
 false

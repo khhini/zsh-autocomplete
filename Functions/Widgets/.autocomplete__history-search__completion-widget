@@ -8,12 +8,15 @@ ${0}() {
   autocomplete:_main_complete:new - history-lines _autocomplete__history_lines
 
   unset curcontext
-  (( _lastcomp[nmatches] ))
+  (( compstate[nmatches] ))
 }
 
 ${0}:post() {
   typeset -gi MENUSELECT=0
   compstate[insert]='menu:0'
+  if (( compstate[nmatches] < 2 )); then
+    compstate[list]=
+  fi
 }
 
 ${0} "$@"
